@@ -20,3 +20,4 @@ github:
 notifications:
   jira_options: "link"
   pullrequests_bot_sonarcloud: "commits@sling.apache.org"
+

@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
-import ch.qos.logback.classic.Level;
 import io.modelcontextprotocol.json.McpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -66,8 +66,8 @@ public class LogToolContribution implements McpServerContribution {
                     },
                     "logLevel" : {
                       "type" : "string",
-                      "description" : "Minimum log level to return. Options: ERROR, WARN, INFO, DEBUG, TRACE. Defaults to ERROR.",
-                      "enum" : ["ERROR", "WARN", "INFO", "DEBUG", "TRACE"]
+                      "description" : "Minimum log level to return. Options: %s. Defaults to %s.",
+                      "enum" : %s
                     },
                     "maxEntries" : {
                       "type" : "integer",
@@ -77,13 +77,17 @@ public class LogToolContribution implements McpServerContribution {
                     }
                   }
                 }
-                """;
+                """.formatted(
+                        validLogLevelValuesAsCsv(),
+                        LogSnapshot.getHighestLogLevelName(),
+                        validLogLevelValuesAsJsonSchemaEnum());
 
         return List.of(new SyncToolSpecification(
                 Tool.builder()
                         .name("logs")
                         .description("Retrieve logs with optional filtering. "
-                                + "Supports filtering by regex pattern, log level (ERROR, WARN, INFO, DEBUG, TRACE), "
+                                + "Supports filtering by regex pattern, log level (" + validLogLevelValuesAsCsv()
+                                + "), "
                                 + "and maximum number of entries. Returns most recent logs first.")
                         .inputSchema(jsonMapper.get(), schema)
                         .build(),
@@ -99,16 +103,16 @@ public class LogToolContribution implements McpServerContribution {
                         maxEntries = Math.min(maxEntries, 1000); // Cap at 1000
                     }
 
-                    Level minLogLevel = Level.ERROR;
+                    String minLogLevel = LogSnapshot.getHighestLogLevelName();
                     if (logLevelStr != null && !logLevelStr.isEmpty()) {
-                        minLogLevel = parseLogLevel(logLevelStr);
-                        if (minLogLevel == null) {
+                        if (!LogSnapshot.isValidLogLevel(logLevelStr)) {
                             return CallToolResult.builder()
-                                    .addTextContent("Invalid log level: " + logLevelStr
-                                            + ". Valid options are: ERROR, WARN, INFO, DEBUG, TRACE")
+                                    .addTextContent("Invalid log level: " + logLevelStr + ". Valid options are: "
+                                            + String.join(", ", LogSnapshot.getValidLogLevelNames()))
                                     .isError(true)
                                     .build();
                         }
+                        minLogLevel = logLevelStr;
                     }
 
                     // Compile regex pattern if provided
@@ -134,23 +138,12 @@ public class LogToolContribution implements McpServerContribution {
                 }));
     }
 
-    private Level parseLogLevel(String levelStr) {
-        return switch (levelStr.toUpperCase()) {
-            case "ERROR" -> Level.ERROR;
-            case "WARN", "WARNING" -> Level.WARN;
-            case "INFO" -> Level.INFO;
-            case "DEBUG" -> Level.DEBUG;
-            case "TRACE" -> Level.TRACE;
-            default -> null;
-        };
-    }
-
-    private String formatLogs(List<LogSnapshot> logs, String regexPattern, Level minLogLevel, int maxEntries) {
+    private String formatLogs(List<LogSnapshot> logs, String regexPattern, String minLogLevel, int maxEntries) {
         StringBuilder result = new StringBuilder();
 
         result.append("=== Log Entries ===\n\n");
         result.append("Filter Settings:\n");
-        result.append("  - Log Level: ").append(getLogLevelName(minLogLevel)).append(" and higher severity\n");
+        result.append("  - Log LogLevel: ").append(minLogLevel).append(" and higher severity\n");
         result.append("  - Regex Pattern: ")
                 .append(regexPattern != null ? regexPattern : "(none)")
                 .append("\n");
@@ -179,7 +172,7 @@ public class LogToolContribution implements McpServerContribution {
     private void formatLogEntry(LogSnapshot entry, int index, StringBuilder result) {
         result.append("[").append(index).append("] ");
         result.append(DATE_FORMAT.format(new Date(entry.timeMillis())));
-        result.append(" [").append(getLogLevelName(entry.level())).append("] ");
+        result.append(" [").append(entry.level()).append("] ");
         result.append("[")
                 .append(entry.loggerName() != null ? entry.loggerName() : "(unknown logger)")
                 .append("] ");
@@ -222,7 +215,17 @@ public class LogToolContribution implements McpServerContribution {
         return result.toString();
     }
 
-    private String getLogLevelName(Level level) {
-        return level != null ? level.levelStr : "UNKNOWN";
+    private String validLogLevelValuesAsCsv() {
+        return String.join(", ", LogSnapshot.getValidLogLevelNames());
+    }
+
+    private String validLogLevelValuesAsJsonSchemaEnum() {
+        StringBuilder result = new StringBuilder();
+        result.append("[ ");
+        result.append(LogSnapshot.getValidLogLevelNames().stream()
+                .map(name -> '"' + name + '"')
+                .collect(Collectors.joining(", ")));
+        result.append(" ]");
+        return result.toString();
     }
 }

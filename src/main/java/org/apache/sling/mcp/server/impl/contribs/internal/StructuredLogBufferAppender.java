@@ -29,6 +29,7 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.AppenderBase;
+import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot.LogLevel;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
@@ -48,7 +49,7 @@ public class StructuredLogBufferAppender extends AppenderBase<ILoggingEvent> {
     // Forward compatibility with logback 1.5+, where IThrowableProxy may expose getOverridingMessage().
     private static final MethodHandle GET_OVERRIDING_MESSAGE = findGetOverridingMessage();
 
-    @ObjectClassDefinition(name = "Apache Sling MCP Structured Log Buffer")
+    @ObjectClassDefinition(name = "Apache Sling Structured Log Buffer")
     public @interface Configuration {
 
         @AttributeDefinition(name = "Max entries")
@@ -60,7 +61,7 @@ public class StructuredLogBufferAppender extends AppenderBase<ILoggingEvent> {
     @Activate
     public StructuredLogBufferAppender(Configuration configuration) {
         buffer = new StructuredLogBuffer(configuration.maxEntries());
-        setName("mcp-structured-log-buffer");
+        setName("structured-log-buffer");
     }
 
     public StructuredLogBuffer getBuffer() {
@@ -73,9 +74,11 @@ public class StructuredLogBufferAppender extends AppenderBase<ILoggingEvent> {
             return;
         }
 
+        LogLevel logLevel = LogLevel.valueOf(eventObject.getLevel().levelStr);
+
         buffer.append(new LogSnapshot(
                 eventObject.getTimeStamp(),
-                eventObject.getLevel(),
+                logLevel,
                 eventObject.getLoggerName(),
                 eventObject.getThreadName(),
                 eventObject.getFormattedMessage(),

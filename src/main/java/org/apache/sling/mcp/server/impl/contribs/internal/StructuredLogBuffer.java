@@ -24,7 +24,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import ch.qos.logback.classic.Level;
+import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot.LogLevel;
 
 public class StructuredLogBuffer {
 
@@ -43,14 +43,21 @@ public class StructuredLogBuffer {
         }
     }
 
-    public List<LogSnapshot> getRecent(Pattern pattern, Level minLevel, int maxEntries) {
+    public List<LogSnapshot> getRecent(Pattern pattern, String minLevel, int maxEntries) {
+
+        if (!LogSnapshot.isValidLogLevel(minLevel)) {
+            throw new IllegalArgumentException("Invalid log level: " + minLevel);
+        }
+
+        LogLevel minLogLevel = LogLevel.valueOf(minLevel);
+
         synchronized (lock) {
             List<LogSnapshot> matches = new ArrayList<>();
             int remaining = Math.max(1, maxEntries);
 
             for (var iterator = entries.descendingIterator(); iterator.hasNext() && remaining > 0; ) {
                 LogSnapshot snapshot = iterator.next();
-                if (!matches(snapshot, pattern, minLevel)) {
+                if (!matches(snapshot, pattern, minLogLevel)) {
                     continue;
                 }
                 matches.add(snapshot);
@@ -61,12 +68,14 @@ public class StructuredLogBuffer {
         }
     }
 
-    private boolean matches(LogSnapshot snapshot, Pattern pattern, Level minLevel) {
+    private boolean matches(LogSnapshot snapshot, Pattern pattern, LogLevel minLevel) {
+
         if (snapshot.level().isGreaterOrEqual(minLevel)) {
             if (pattern == null) {
                 return true;
             }
-            return matchesField(pattern, snapshot.level() != null ? snapshot.level().levelStr : null)
+            return matchesField(
+                            pattern, snapshot.level() != null ? snapshot.level().toString() : null)
                     || matchesField(pattern, snapshot.loggerName())
                     || matchesField(pattern, snapshot.threadName())
                     || matchesField(pattern, snapshot.formattedMessage())

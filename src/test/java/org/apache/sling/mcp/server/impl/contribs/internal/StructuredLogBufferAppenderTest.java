@@ -47,7 +47,7 @@ class StructuredLogBufferAppenderTest {
 
         appender.append(event);
 
-        List<LogSnapshot> logs = appender.getBuffer().getRecent(null, Level.TRACE, 10);
+        List<LogSnapshot> logs = appender.getBuffer().getRecent(null, "TRACE", 10);
         assertEquals(1, logs.size());
         assertEquals("message", logs.get(0).formattedMessage());
         assertEquals("worker-1", logs.get(0).threadName());

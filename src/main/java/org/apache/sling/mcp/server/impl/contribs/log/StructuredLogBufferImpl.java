@@ -16,26 +16,48 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.sling.mcp.server.impl.contribs.internal;
+package org.apache.sling.mcp.server.impl.contribs.log;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot.LogLevel;
+import org.apache.sling.mcp.server.contribs.log.LogSnapshot;
+import org.apache.sling.mcp.server.contribs.log.StructuredLogBuffer;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
-public class StructuredLogBuffer {
+@Component(service = {StructuredLogBuffer.class, StructuredLogBufferSink.class})
+@Designate(ocd = StructuredLogBufferImpl.Configuration.class)
+public class StructuredLogBufferImpl implements StructuredLogBuffer, StructuredLogBufferSink {
+
+    @ObjectClassDefinition(name = "Apache Sling Structured Log Buffer")
+    public @interface Configuration {
+
+        @AttributeDefinition(name = "Max entries")
+        int maxEntries() default 10000;
+    }
 
     private final Object lock = new Object();
     private final Deque<LogSnapshot> entries = new ArrayDeque<>();
     private int maxEntriesKept;
 
-    public StructuredLogBuffer(int maxEntriesKept) {
+    public StructuredLogBufferImpl(int maxEntriesKept) {
         this.maxEntriesKept = Math.max(1, maxEntriesKept);
     }
 
+    @Activate
+    public StructuredLogBufferImpl(Configuration configuration) {
+        this(configuration.maxEntries());
+    }
+
+    @Override
     public void append(LogSnapshot snapshot) {
         synchronized (lock) {
             entries.addLast(snapshot);
@@ -43,9 +65,24 @@ public class StructuredLogBuffer {
         }
     }
 
+    @Override
+    public boolean isValidLogLevel(String logLevelName) {
+        return LogLevel.isValid(logLevelName);
+    }
+
+    @Override
+    public List<String> getValidLogLevelNames() {
+        return Arrays.stream(LogLevel.values()).map(Enum::toString).toList();
+    }
+
+    @Override
+    public String getHighestLogLevelName() {
+        return LogLevel.getHighestName();
+    }
+
     public List<LogSnapshot> getRecent(Pattern pattern, String minLevel, int maxEntries) {
 
-        if (!LogSnapshot.isValidLogLevel(minLevel)) {
+        if (!isValidLogLevel(minLevel)) {
             throw new IllegalArgumentException("Invalid log level: " + minLevel);
         }
 
@@ -70,12 +107,11 @@ public class StructuredLogBuffer {
 
     private boolean matches(LogSnapshot snapshot, Pattern pattern, LogLevel minLevel) {
 
-        if (snapshot.level().isGreaterOrEqual(minLevel)) {
+        if (LogLevel.valueOf(snapshot.level()).isGreaterOrEqual(minLevel)) {
             if (pattern == null) {
                 return true;
             }
-            return matchesField(
-                            pattern, snapshot.level() != null ? snapshot.level().toString() : null)
+            return matchesField(pattern, snapshot.level())
                     || matchesField(pattern, snapshot.loggerName())
                     || matchesField(pattern, snapshot.threadName())
                     || matchesField(pattern, snapshot.formattedMessage())

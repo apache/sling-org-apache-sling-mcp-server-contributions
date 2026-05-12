@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.sling.mcp.server.impl.contribs.internal;
+package org.apache.sling.mcp.server.impl.contribs.log;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -29,43 +29,25 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.AppenderBase;
-import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot.LogLevel;
+import org.apache.sling.mcp.server.contribs.log.LogSnapshot;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.metatype.annotations.AttributeDefinition;
-import org.osgi.service.metatype.annotations.Designate;
-import org.osgi.service.metatype.annotations.ObjectClassDefinition;
+import org.osgi.service.component.annotations.Reference;
 
 @Component(
-        service = {Appender.class, StructuredLogBufferAppender.class},
-        property = {
-            "loggers=ROOT",
-            "service.description=Structured in-memory MCP log appender",
-            "service.vendor=The Apache Software Foundation"
-        })
-@Designate(ocd = StructuredLogBufferAppender.Configuration.class)
+        service = Appender.class,
+        property = {"loggers=ROOT"})
 public class StructuredLogBufferAppender extends AppenderBase<ILoggingEvent> {
 
     // Forward compatibility with logback 1.5+, where IThrowableProxy may expose getOverridingMessage().
     private static final MethodHandle GET_OVERRIDING_MESSAGE = findGetOverridingMessage();
 
-    @ObjectClassDefinition(name = "Apache Sling Structured Log Buffer")
-    public @interface Configuration {
-
-        @AttributeDefinition(name = "Max entries")
-        int maxEntries() default 10000;
-    }
-
-    private final StructuredLogBuffer buffer;
+    private final StructuredLogBufferSink buffer;
 
     @Activate
-    public StructuredLogBufferAppender(Configuration configuration) {
-        buffer = new StructuredLogBuffer(configuration.maxEntries());
+    public StructuredLogBufferAppender(@Reference StructuredLogBufferSink buffer) {
+        this.buffer = buffer;
         setName("structured-log-buffer");
-    }
-
-    public StructuredLogBuffer getBuffer() {
-        return buffer;
     }
 
     @Override
@@ -74,7 +56,10 @@ public class StructuredLogBufferAppender extends AppenderBase<ILoggingEvent> {
             return;
         }
 
-        LogLevel logLevel = LogLevel.valueOf(eventObject.getLevel().levelStr);
+        String logLevel = eventObject.getLevel().levelStr;
+        if (!LogLevel.isValid(logLevel)) {
+            return;
+        }
 
         buffer.append(new LogSnapshot(
                 eventObject.getTimeStamp(),

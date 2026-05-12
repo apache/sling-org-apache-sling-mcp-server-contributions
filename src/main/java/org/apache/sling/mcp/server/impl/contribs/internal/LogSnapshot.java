@@ -18,25 +18,63 @@
  */
 package org.apache.sling.mcp.server.impl.contribs.internal;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-
-import ch.qos.logback.classic.Level;
 
 /**
  * Stores only the lightweight, stable parts of a log event so the in-memory buffer
- * does not retain full {@code ILoggingEvent} object graphs.
+ * does not retain full logging event object graphs.
  */
 public record LogSnapshot(
         long timeMillis,
-        Level level,
+        LogLevel level, // avoid binding to logback or a specific version of slf4j
         String loggerName,
         String threadName,
         String formattedMessage,
         String throwableText,
         Map<String, String> mdc) {
 
+    public static boolean isValidLogLevel(String logLevelName) {
+        try {
+            LogLevel.valueOf(logLevelName);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public static List<String> getValidLogLevelNames() {
+        return Arrays.stream(LogLevel.values()).map(Enum::toString).toList();
+    }
+
+    public static String getHighestLogLevelName() {
+        return LogLevel.values()[LogLevel.values().length - 1].toString();
+    }
+
     public LogSnapshot {
         mdc = mdc == null ? Collections.emptyMap() : Collections.unmodifiableMap(mdc);
+    }
+
+    enum LogLevel {
+        TRACE,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR;
+
+        boolean isGreaterOrEqual(LogLevel minLevel) {
+            return ordinal() >= minLevel.ordinal();
+        }
+
+        public boolean isValid(String logLevelName) {
+            try {
+                LogLevel.valueOf(logLevelName);
+                return true;
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
     }
 }

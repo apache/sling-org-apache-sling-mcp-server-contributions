@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import ch.qos.logback.classic.Level;
+import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot.LogLevel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,11 +33,11 @@ class StructuredLogBufferTest {
     void keepsOnlyNewestEntriesWithinCapacity() {
         StructuredLogBuffer buffer = new StructuredLogBuffer(2);
 
-        buffer.append(snapshot(1L, Level.INFO, "first"));
-        buffer.append(snapshot(2L, Level.INFO, "second"));
-        buffer.append(snapshot(3L, Level.INFO, "third"));
+        buffer.append(snapshot(1L, LogLevel.INFO, "first"));
+        buffer.append(snapshot(2L, LogLevel.INFO, "second"));
+        buffer.append(snapshot(3L, LogLevel.INFO, "third"));
 
-        List<LogSnapshot> logs = buffer.getRecent(null, Level.TRACE, 10);
+        List<LogSnapshot> logs = buffer.getRecent(null, "TRACE", 10);
         assertEquals(
                 List.of("third", "second"),
                 logs.stream().map(LogSnapshot::formattedMessage).toList());
@@ -47,18 +47,18 @@ class StructuredLogBufferTest {
     void filtersByLevelAndRegex() {
         StructuredLogBuffer buffer = new StructuredLogBuffer(10);
 
-        buffer.append(snapshot(1L, Level.DEBUG, "debug trace"));
-        buffer.append(snapshot(2L, Level.INFO, "first user ok"));
-        buffer.append(snapshot(3L, Level.ERROR, "first user failure"));
+        buffer.append(snapshot(1L, LogLevel.DEBUG, "debug trace"));
+        buffer.append(snapshot(2L, LogLevel.INFO, "first user ok"));
+        buffer.append(snapshot(3L, LogLevel.ERROR, "first user failure"));
 
-        List<LogSnapshot> logs = buffer.getRecent(Pattern.compile("first", Pattern.CASE_INSENSITIVE), Level.INFO, 10);
+        List<LogSnapshot> logs = buffer.getRecent(Pattern.compile("first", Pattern.CASE_INSENSITIVE), "INFO", 10);
 
         assertEquals(
                 List.of("first user failure", "first user ok"),
                 logs.stream().map(LogSnapshot::formattedMessage).toList());
     }
 
-    private LogSnapshot snapshot(long timeMillis, Level level, String message) {
+    private LogSnapshot snapshot(long timeMillis, LogLevel level, String message) {
         return new LogSnapshot(timeMillis, level, "logger", "thread", message, null, Map.of());
     }
 }

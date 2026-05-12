@@ -16,26 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.sling.mcp.server.impl.contribs.internal;
+package org.apache.sling.mcp.server.impl.contribs.log;
 
+import java.lang.reflect.Constructor;
 import java.util.List;
-import java.util.Map;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.LoggingEvent;
+import org.apache.sling.mcp.server.contribs.log.LogSnapshot;
 import org.junit.jupiter.api.Test;
-import org.osgi.util.converter.Converters;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class StructuredLogBufferAppenderTest {
 
     @Test
     void appenderSnapshotsFormattedMessageAndThrowable() {
-        StructuredLogBufferAppender appender = new StructuredLogBufferAppender(configuration(5));
+        StructuredLogBufferImpl buffer = new StructuredLogBufferImpl(5);
+        StructuredLogBufferAppender appender = new StructuredLogBufferAppender(buffer);
 
         LoggerContext context = new LoggerContext();
         appender.setContext(context);
@@ -47,16 +49,39 @@ class StructuredLogBufferAppenderTest {
 
         appender.append(event);
 
-        List<LogSnapshot> logs = appender.getBuffer().getRecent(null, "TRACE", 10);
+        List<LogSnapshot> logs = buffer.getRecent(null, "TRACE", 10);
         assertEquals(1, logs.size());
         assertEquals("message", logs.get(0).formattedMessage());
         assertEquals("worker-1", logs.get(0).threadName());
+        assertEquals("ERROR", logs.get(0).level());
         assertNotNull(logs.get(0).throwableText());
     }
 
-    private StructuredLogBufferAppender.Configuration configuration(int maxEntries) {
-        return Converters.standardConverter()
-                .convert(Map.of("maxEntries", maxEntries))
-                .to(StructuredLogBufferAppender.Configuration.class);
+    @Test
+    void appenderSkipsInvalidLogLevels() {
+        StructuredLogBufferImpl buffer = new StructuredLogBufferImpl(5);
+        StructuredLogBufferAppender appender = new StructuredLogBufferAppender(buffer);
+
+        LoggerContext context = new LoggerContext();
+        LoggingEvent event = new LoggingEvent();
+        event.setLoggerName("invalid.logger");
+        event.setThreadName("invalid-thread");
+        event.setMessage("ignored");
+        event.setLevel(invalidLevel());
+
+        appender.append(event);
+
+        assertEquals(List.of(), buffer.getRecent(null, "TRACE", 10));
+    }
+
+    private Level invalidLevel() {
+        try {
+            Constructor<Level> constructor = Level.class.getDeclaredConstructor(int.class, String.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(Integer.MAX_VALUE, "INVALID");
+        } catch (ReflectiveOperationException e) {
+            fail("Unable to construct invalid log level", e);
+            return null;
+        }
     }
 }

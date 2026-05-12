@@ -16,17 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.sling.mcp.server.impl.contribs.internal;
+package org.apache.sling.mcp.server.contribs.log;
 
-import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot.LogLevel;
-import org.junit.jupiter.api.Test;
+import java.util.List;
+import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.*;
+public interface StructuredLogBuffer {
 
-class LogSnapshotTest {
+    boolean isValidLogLevel(String logLevelName);
 
-    @Test
-    void logLevelComparison() {
-        assertTrue(LogSnapshot.LogLevel.INFO.isGreaterOrEqual(LogLevel.TRACE));
-    }
+    List<String> getValidLogLevelNames();
+
+    String getHighestLogLevelName();
+
+    List<LogSnapshot> getRecent(Pattern pattern, String minLevel, int maxEntries);
 }

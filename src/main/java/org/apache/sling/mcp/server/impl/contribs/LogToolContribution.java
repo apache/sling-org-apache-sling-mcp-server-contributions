@@ -30,8 +30,8 @@ import io.modelcontextprotocol.json.McpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
-import org.apache.sling.mcp.server.impl.contribs.internal.LogSnapshot;
-import org.apache.sling.mcp.server.impl.contribs.internal.StructuredLogBufferAppender;
+import org.apache.sling.mcp.server.contribs.log.LogSnapshot;
+import org.apache.sling.mcp.server.contribs.log.StructuredLogBuffer;
 import org.apache.sling.mcp.server.spi.McpServerContribution;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -44,7 +44,7 @@ import org.osgi.service.component.annotations.Reference;
 public class LogToolContribution implements McpServerContribution {
 
     @Reference
-    private StructuredLogBufferAppender structuredLogBufferAppender;
+    private StructuredLogBuffer structuredLogBuffer;
 
     @Reference
     private McpJsonMapperSupplier jsonMapper;
@@ -79,7 +79,7 @@ public class LogToolContribution implements McpServerContribution {
                 }
                 """.formatted(
                         validLogLevelValuesAsCsv(),
-                        LogSnapshot.getHighestLogLevelName(),
+                        structuredLogBuffer.getHighestLogLevelName(),
                         validLogLevelValuesAsJsonSchemaEnum());
 
         return List.of(new SyncToolSpecification(
@@ -103,12 +103,12 @@ public class LogToolContribution implements McpServerContribution {
                         maxEntries = Math.min(maxEntries, 1000); // Cap at 1000
                     }
 
-                    String minLogLevel = LogSnapshot.getHighestLogLevelName();
+                    String minLogLevel = structuredLogBuffer.getHighestLogLevelName();
                     if (logLevelStr != null && !logLevelStr.isEmpty()) {
-                        if (!LogSnapshot.isValidLogLevel(logLevelStr)) {
+                        if (!structuredLogBuffer.isValidLogLevel(logLevelStr)) {
                             return CallToolResult.builder()
                                     .addTextContent("Invalid log level: " + logLevelStr + ". Valid options are: "
-                                            + String.join(", ", LogSnapshot.getValidLogLevelNames()))
+                                            + String.join(", ", structuredLogBuffer.getValidLogLevelNames()))
                                     .isError(true)
                                     .build();
                         }
@@ -128,8 +128,7 @@ public class LogToolContribution implements McpServerContribution {
                         }
                     }
 
-                    List<LogSnapshot> filteredLogs =
-                            structuredLogBufferAppender.getBuffer().getRecent(pattern, minLogLevel, maxEntries);
+                    List<LogSnapshot> filteredLogs = structuredLogBuffer.getRecent(pattern, minLogLevel, maxEntries);
 
                     // Format output
                     String result = formatLogs(filteredLogs, regexPattern, minLogLevel, maxEntries);
@@ -216,13 +215,13 @@ public class LogToolContribution implements McpServerContribution {
     }
 
     private String validLogLevelValuesAsCsv() {
-        return String.join(", ", LogSnapshot.getValidLogLevelNames());
+        return String.join(", ", structuredLogBuffer.getValidLogLevelNames());
     }
 
     private String validLogLevelValuesAsJsonSchemaEnum() {
         StringBuilder result = new StringBuilder();
         result.append("[ ");
-        result.append(LogSnapshot.getValidLogLevelNames().stream()
+        result.append(structuredLogBuffer.getValidLogLevelNames().stream()
                 .map(name -> '"' + name + '"')
                 .collect(Collectors.joining(", ")));
         result.append(" ]");

@@ -156,6 +156,21 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>slingfeature-maven-plugin</artifactId>
+                <version>1.9.4</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <id>attach-features</id>
+                        <goals>
+                            <goal>attach-features</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- Configure bnd-baseline to skip when no previous version exists. Remove after first release -->
             <plugin>
                 <groupId>biz.aQute.bnd</groupId>

@@ -43,14 +43,15 @@ import org.osgi.service.component.annotations.Reference;
 @Component
 public class LogToolContribution implements McpServerContribution {
 
+    private static final int DEFAULT_MAX_LOGS = 200;
+
     @Reference
     private StructuredLogBuffer structuredLogBuffer;
 
     @Reference
     private McpJsonMapperSupplier jsonMapper;
 
-    private static final int DEFAULT_MAX_LOGS = 200;
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     @Override
     public List<SyncToolSpecification> getSyncToolSpecification() {
@@ -98,9 +99,8 @@ public class LogToolContribution implements McpServerContribution {
 
                     // Parse parameters
                     int maxEntries = DEFAULT_MAX_LOGS;
-                    if (maxEntriesObj instanceof Number) {
-                        maxEntries = ((Number) maxEntriesObj).intValue();
-                        maxEntries = Math.min(maxEntries, 1000); // Cap at 1000
+                    if (maxEntriesObj instanceof Number maxEntriesNumber) {
+                        maxEntries = Math.min(maxEntriesNumber.intValue(), 1000); // Cap at 1000
                     }
 
                     String minLogLevel = structuredLogBuffer.getHighestLogLevelName();
@@ -170,7 +170,7 @@ public class LogToolContribution implements McpServerContribution {
 
     private void formatLogEntry(LogSnapshot entry, int index, StringBuilder result) {
         result.append("[").append(index).append("] ");
-        result.append(DATE_FORMAT.format(new Date(entry.timeMillis())));
+        result.append(dateFormat.format(new Date(entry.timeMillis())));
         result.append(" [").append(entry.level()).append("] ");
         result.append("[")
                 .append(entry.loggerName() != null ? entry.loggerName() : "(unknown logger)")

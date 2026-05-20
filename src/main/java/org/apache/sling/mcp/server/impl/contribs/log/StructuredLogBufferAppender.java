@@ -144,7 +144,7 @@ public class StructuredLogBufferAppender extends AppenderBase<ILoggingEvent> {
 
         try {
             Object overridingMessage = GET_OVERRIDING_MESSAGE.invoke(throwableProxy);
-            return overridingMessage instanceof String ? (String) overridingMessage : null;
+            return overridingMessage instanceof String msg ? msg : null;
         } catch (Throwable e) {
             return null;
         }

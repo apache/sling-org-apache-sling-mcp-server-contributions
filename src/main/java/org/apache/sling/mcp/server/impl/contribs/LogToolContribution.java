@@ -30,8 +30,9 @@ import io.modelcontextprotocol.json.McpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
-import org.apache.sling.mcp.server.contribs.log.LogSnapshot;
-import org.apache.sling.mcp.server.contribs.log.StructuredLogBuffer;
+import org.apache.sling.commons.log.logback.store.LogEntry;
+import org.apache.sling.commons.log.logback.store.LogLevel;
+import org.apache.sling.commons.log.logback.store.LogStore;
 import org.apache.sling.mcp.server.spi.McpServerContribution;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -44,7 +45,7 @@ import org.osgi.service.component.annotations.Reference;
 public class LogToolContribution implements McpServerContribution {
 
     @Reference
-    private StructuredLogBuffer structuredLogBuffer;
+    private LogStore logStore;
 
     @Reference
     private McpJsonMapperSupplier jsonMapper;
@@ -78,9 +79,7 @@ public class LogToolContribution implements McpServerContribution {
                   }
                 }
                 """.formatted(
-                        validLogLevelValuesAsCsv(),
-                        structuredLogBuffer.getHighestLogLevelName(),
-                        validLogLevelValuesAsJsonSchemaEnum());
+                        validLogLevelValuesAsCsv(), getHighestLogLevelName(), validLogLevelValuesAsJsonSchemaEnum());
 
         return List.of(new SyncToolSpecification(
                 Tool.builder()
@@ -103,16 +102,16 @@ public class LogToolContribution implements McpServerContribution {
                         maxEntries = Math.min(maxEntries, 1000); // Cap at 1000
                     }
 
-                    String minLogLevel = structuredLogBuffer.getHighestLogLevelName();
+                    LogLevel minLogLevel = getHighestLogLevel();
                     if (logLevelStr != null && !logLevelStr.isEmpty()) {
-                        if (!structuredLogBuffer.isValidLogLevel(logLevelStr)) {
+                        if (!isValidLogLevel(logLevelStr)) {
                             return CallToolResult.builder()
                                     .addTextContent("Invalid log level: " + logLevelStr + ". Valid options are: "
-                                            + String.join(", ", structuredLogBuffer.getValidLogLevelNames()))
+                                            + String.join(", ", getValidLogLevelNames()))
                                     .isError(true)
                                     .build();
                         }
-                        minLogLevel = logLevelStr;
+                        minLogLevel = LogLevel.valueOf(logLevelStr);
                     }
 
                     // Compile regex pattern if provided
@@ -128,16 +127,16 @@ public class LogToolContribution implements McpServerContribution {
                         }
                     }
 
-                    List<LogSnapshot> filteredLogs = structuredLogBuffer.getRecent(pattern, minLogLevel, maxEntries);
+                    List<LogEntry> filteredLogs = logStore.getRecent(pattern, minLogLevel, maxEntries);
 
                     // Format output
-                    String result = formatLogs(filteredLogs, regexPattern, minLogLevel, maxEntries);
+                    String result = formatLogs(filteredLogs, regexPattern, minLogLevel.name(), maxEntries);
 
                     return CallToolResult.builder().addTextContent(result).build();
                 }));
     }
 
-    private String formatLogs(List<LogSnapshot> logs, String regexPattern, String minLogLevel, int maxEntries) {
+    private String formatLogs(List<LogEntry> logs, String regexPattern, String minLogLevel, int maxEntries) {
         StringBuilder result = new StringBuilder();
 
         result.append("=== Log Entries ===\n\n");
@@ -157,7 +156,7 @@ public class LogToolContribution implements McpServerContribution {
         result.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
 
         for (int i = 0; i < logs.size(); i++) {
-            LogSnapshot entry = logs.get(i);
+            LogEntry entry = logs.get(i);
             formatLogEntry(entry, i + 1, result);
 
             if (i < logs.size() - 1) {
@@ -168,7 +167,7 @@ public class LogToolContribution implements McpServerContribution {
         return result.toString();
     }
 
-    private void formatLogEntry(LogSnapshot entry, int index, StringBuilder result) {
+    private void formatLogEntry(LogEntry entry, int index, StringBuilder result) {
         result.append("[").append(index).append("] ");
         result.append(DATE_FORMAT.format(new Date(entry.timeMillis())));
         result.append(" [").append(entry.level()).append("] ");
@@ -215,16 +214,37 @@ public class LogToolContribution implements McpServerContribution {
     }
 
     private String validLogLevelValuesAsCsv() {
-        return String.join(", ", structuredLogBuffer.getValidLogLevelNames());
+        return String.join(", ", getValidLogLevelNames());
     }
 
     private String validLogLevelValuesAsJsonSchemaEnum() {
         StringBuilder result = new StringBuilder();
         result.append("[ ");
-        result.append(structuredLogBuffer.getValidLogLevelNames().stream()
-                .map(name -> '"' + name + '"')
-                .collect(Collectors.joining(", ")));
+        result.append(
+                getValidLogLevelNames().stream().map(name -> '"' + name + '"').collect(Collectors.joining(", ")));
         result.append(" ]");
         return result.toString();
+    }
+
+    private boolean isValidLogLevel(String logLevelName) {
+        try {
+            LogLevel.valueOf(logLevelName);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private List<String> getValidLogLevelNames() {
+        return java.util.Arrays.stream(LogLevel.values()).map(Enum::name).toList();
+    }
+
+    private LogLevel getHighestLogLevel() {
+        LogLevel[] levels = LogLevel.values();
+        return levels[levels.length - 1];
+    }
+
+    private String getHighestLogLevelName() {
+        return getHighestLogLevel().name();
     }
 }

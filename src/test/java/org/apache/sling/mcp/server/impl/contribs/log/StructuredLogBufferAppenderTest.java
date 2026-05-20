@@ -62,7 +62,6 @@ class StructuredLogBufferAppenderTest {
         StructuredLogBufferImpl buffer = new StructuredLogBufferImpl(5);
         StructuredLogBufferAppender appender = new StructuredLogBufferAppender(buffer);
 
-        LoggerContext context = new LoggerContext();
         LoggingEvent event = new LoggingEvent();
         event.setLoggerName("invalid.logger");
         event.setThreadName("invalid-thread");

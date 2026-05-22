@@ -28,13 +28,14 @@
     </parent>
 
     <artifactId>org.apache.sling.mcp-server-contributions</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.1-SNAPSHOT</version>
 
     <name>Apache Sling MCP Server Contributions</name>
 
     <scm>
         <connection>scm:git:https://gitbox.apache.org/repos/asf/sling-org-apache-sling-mcp-server-contributions.git</connection>
         <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/sling-org-apache-sling-mcp-server-contributions.git</developerConnection>
+        <tag>HEAD</tag>
         <url>https://github.com/apache/sling-org-apache-sling-mcp-server-contributions.git</url>
     </scm>
 
@@ -162,6 +163,21 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>slingfeature-maven-plugin</artifactId>
+                <version>1.9.4</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <id>attach-features</id>
+                        <goals>
+                            <goal>attach-features</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- Configure bnd-baseline to skip when no previous version exists. Remove after first release -->
             <plugin>
                 <groupId>biz.aQute.bnd</groupId>

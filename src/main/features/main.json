@@ -4,5 +4,10 @@
       "id": "${project.groupId}:${project.artifactId}:${project.version}",
       "start-order": 25
     }
-  ]
+  ],
+  "configurations": {
+    "org.apache.sling.commons.log.LogStore": {
+      "maxEntries": 5000
+    }
+  }
 }

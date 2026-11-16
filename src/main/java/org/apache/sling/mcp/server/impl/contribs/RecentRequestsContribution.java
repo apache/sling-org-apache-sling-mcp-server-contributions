@@ -19,12 +19,12 @@
 package org.apache.sling.mcp.server.impl.contribs;
 
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import io.modelcontextprotocol.json.McpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -39,13 +39,10 @@ import org.osgi.service.component.annotations.Reference;
 public class RecentRequestsContribution implements McpServerContribution {
 
     private final RequestInfoProvider requestInfoProvider;
-    private final McpJsonMapperSupplier jsonMapperSupplier;
 
     @Activate
-    public RecentRequestsContribution(
-            @Reference RequestInfoProvider requestInfoProvider, @Reference McpJsonMapperSupplier jsonMapperSupplier) {
+    public RecentRequestsContribution(@Reference RequestInfoProvider requestInfoProvider) {
         this.requestInfoProvider = requestInfoProvider;
-        this.jsonMapperSupplier = jsonMapperSupplier;
     }
 
     private String describe(RequestInfo ri) {
@@ -57,27 +54,26 @@ public class RecentRequestsContribution implements McpServerContribution {
     @Override
     public List<SyncToolSpecification> getSyncToolSpecification() {
 
-        var schema = """
-                {
-                  "type" : "object",
-                  "id" : "urn:jsonschema:RecentRequestsInput",
-                  "properties" : {
-                    "path" : {
-                      "type" : "string",
-                      "description" : "Optional regex pattern to filter requests by path. If not provided, all recent requests are returned."
-                    }
-                  }
-                }
-                """;
+        var schema = Map.<String, Object>of(
+                "type",
+                "object",
+                "properties",
+                Map.of(
+                        "path",
+                        Map.of(
+                                "type",
+                                "string",
+                                "description",
+                                "Optional regex pattern to filter requests by path. If not provided, all recent requests are returned.")),
+                "additionalProperties",
+                false);
 
         return List.of(new SyncToolSpecification(
-                Tool.builder()
-                        .name("recent-requests")
+                Tool.builder("recent-requests", schema)
                         .description(
                                 "Returns all recent requests matching the specified path regex. "
                                         + "Contains information about method, path, user id and a verbose log of internal operations, "
                                         + "including authentication, resource resolution, script resolution, nested scripts/servlets and filters.")
-                        .inputSchema(jsonMapperSupplier.get(), schema)
                         .build(),
                 (exchange, request) -> {
                     String pathRegex = (String) request.arguments().get("path");

@@ -24,9 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-import java.util.stream.Collectors;
 
-import io.modelcontextprotocol.json.McpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -49,47 +47,50 @@ public class LogToolContribution implements McpServerContribution {
     @Reference
     private LogStore logStore;
 
-    @Reference
-    private McpJsonMapperSupplier jsonMapper;
-
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     @Override
     public List<SyncToolSpecification> getSyncToolSpecification() {
 
-        var schema = """
-                {
-                  "type" : "object",
-                  "id" : "urn:jsonschema:LogFilterInput",
-                  "properties" : {
-                    "regex" : {
-                      "type" : "string",
-                      "description" : "Optional regex pattern to filter log messages. If not provided, all logs are returned."
-                    },
-                    "logLevel" : {
-                      "type" : "string",
-                      "description" : "Minimum log level to return. Options: %s. Defaults to %s.",
-                      "enum" : %s
-                    },
-                    "maxEntries" : {
-                      "type" : "integer",
-                      "description" : "Maximum number of log entries to return. Defaults to 200.",
-                      "minimum" : 1,
-                      "maximum" : 1000
-                    }
-                  }
-                }
-                """.formatted(
-                        validLogLevelValuesAsCsv(), getHighestLogLevelName(), validLogLevelValuesAsJsonSchemaEnum());
+        var schema = Map.<String, Object>of(
+                "type",
+                "object",
+                "properties",
+                Map.of(
+                        "regex",
+                        Map.of(
+                                "type",
+                                "string",
+                                "description",
+                                "Optional regex pattern to filter log messages. If not provided, all logs are returned."),
+                        "logLevel",
+                        Map.of(
+                                "type",
+                                "string",
+                                "description",
+                                "Minimum log level to return. Options: " + validLogLevelValuesAsCsv() + ". Defaults to "
+                                        + getHighestLogLevelName() + ".",
+                                "enum",
+                                getValidLogLevelNames()),
+                        "maxEntries",
+                        Map.of(
+                                "type",
+                                "integer",
+                                "description",
+                                "Maximum number of log entries to return. Defaults to 200.",
+                                "minimum",
+                                1,
+                                "maximum",
+                                1000)),
+                "additionalProperties",
+                false);
 
         return List.of(new SyncToolSpecification(
-                Tool.builder()
-                        .name("logs")
+                Tool.builder("logs", schema)
                         .description("Retrieve logs with optional filtering. "
                                 + "Supports filtering by regex pattern, log level (" + validLogLevelValuesAsCsv()
                                 + "), "
                                 + "and maximum number of entries. Returns most recent logs first.")
-                        .inputSchema(jsonMapper.get(), schema)
                         .build(),
                 (exchange, request) -> {
                     String regexPattern = (String) request.arguments().get("regex");
@@ -215,15 +216,6 @@ public class LogToolContribution implements McpServerContribution {
 
     private String validLogLevelValuesAsCsv() {
         return String.join(", ", getValidLogLevelNames());
-    }
-
-    private String validLogLevelValuesAsJsonSchemaEnum() {
-        StringBuilder result = new StringBuilder();
-        result.append("[ ");
-        result.append(
-                getValidLogLevelNames().stream().map(name -> '"' + name + '"').collect(Collectors.joining(", ")));
-        result.append(" ]");
-        return result.toString();
     }
 
     private boolean isValidLogLevel(String logLevelName) {

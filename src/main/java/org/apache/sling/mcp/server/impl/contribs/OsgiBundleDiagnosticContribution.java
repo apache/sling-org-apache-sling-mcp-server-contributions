@@ -22,9 +22,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import io.modelcontextprotocol.json.McpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -55,9 +55,6 @@ import org.osgi.service.component.runtime.dto.UnsatisfiedReferenceDTO;
 public class OsgiBundleDiagnosticContribution implements McpServerContribution {
 
     @Reference
-    private McpJsonMapperSupplier jsonMapperSupplier;
-
-    @Reference
     private ServiceComponentRuntime scr;
 
     private final BundleContext ctx;
@@ -70,25 +67,24 @@ public class OsgiBundleDiagnosticContribution implements McpServerContribution {
     @Override
     public List<SyncToolSpecification> getSyncToolSpecification() {
 
-        var schema = """
-                {
-                  "type" : "object",
-                  "id" : "urn:jsonschema:DiagnoseBundleInput",
-                  "properties" : {
-                    "bundleSymbolicName" : {
-                      "type" : "string",
-                      "description" : "The symbolic name of the bundle to diagnose. If not provided, will diagnose all problematic bundles."
-                    }
-                  }
-                }
-                """;
+        var schema = Map.<String, Object>of(
+                "type",
+                "object",
+                "properties",
+                Map.of(
+                        "bundleSymbolicName",
+                        Map.of(
+                                "type",
+                                "string",
+                                "description",
+                                "The symbolic name of the bundle to diagnose. If not provided, will diagnose all problematic bundles.")),
+                "additionalProperties",
+                false);
 
         return List.of(new SyncToolSpecification(
-                Tool.builder()
-                        .name("diagnose-osgi-bundle")
+                Tool.builder("diagnose-osgi-bundle", schema)
                         .description(
                                 "Diagnose why an OSGi bundle or component isn't starting. Provides detailed information about unsatisfied dependencies, missing packages, and component configuration issues.")
-                        .inputSchema(jsonMapperSupplier.get(), schema)
                         .build(),
                 (exchange, request) -> {
                     String bundleSymbolicName = (String) request.arguments().get("bundleSymbolicName");

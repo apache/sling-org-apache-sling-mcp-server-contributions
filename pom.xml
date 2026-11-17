@@ -41,6 +41,7 @@
 
     <properties>
         <sling.java.version>17</sling.java.version>
+        <mcp.sdk.version>2.1.0</mcp.sdk.version>
         <!-- Run with -Dslingfeature.app.vmOption=-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=30303 for debug mode-->
         <slingfeature.app.vmOption />
     </properties>
@@ -111,7 +112,7 @@
         <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp-core</artifactId>
-            <version>1.0.0</version>
+            <version>${mcp.sdk.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
